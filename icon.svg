@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="0.55" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="wallet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E8FFF5"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="1" stop-color="#F5A623"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#064E3B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="860" cy="140" r="260" fill="#ffffff" opacity="0.08"/>
+  <circle cx="120" cy="980" r="300" fill="#ffffff" opacity="0.06"/>
+  <!-- coin peeking out -->
+  <g filter="url(#sh)">
+    <circle cx="610" cy="330" r="150" fill="url(#coin)"/>
+    <circle cx="610" cy="330" r="112" fill="none" stroke="#FFF3C4" stroke-width="14" opacity="0.8"/>
+    <text x="610" y="388" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="800" font-size="170" fill="#B86E00">€</text>
+  </g>
+  <!-- wallet -->
+  <g filter="url(#sh)">
+    <rect x="196" y="400" width="632" height="430" rx="86" fill="url(#wallet)"/>
+    <path d="M196 486 Q196 400 282 400 L742 400 Q828 400 828 486 L828 520 L196 520 Z" fill="#D1FAE5"/>
+    <rect x="560" y="555" width="300" height="170" rx="62" fill="#065F46"/>
+    <circle cx="645" cy="640" r="34" fill="#34D399"/>
+  </g>
+  <!-- Nova sparkle -->
+  <path d="M300 214 C312 274 326 288 386 300 C326 312 312 326 300 386 C288 326 274 312 214 300 C274 288 288 274 300 214 Z" fill="#FFFFFF"/>
+  <path d="M410 150 C416 178 422 184 450 190 C422 196 416 202 410 230 C404 202 398 196 370 190 C398 184 404 178 410 150 Z" fill="#FFFFFF" opacity="0.85"/>
+</svg>
