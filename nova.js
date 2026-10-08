@@ -639,23 +639,46 @@ const Nova = {
   },
 
   /* ---------- Lectura de tickets (texto del OCR) ---------- */
-  parseTicket(text) {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    const num = /(\d{1,4}[.,]\d{2})(?!\d)/g;
-    let total = 0;
-    // Buscamos el total por orden de fiabilidad
-    const pats = [/total\s*(a\s*)?pagar/i, /importe\s*total/i, /total\s*(eur|€|compra)/i, /^\s*total\b/i, /\btotal\b/i, /a\s*pagar/i, /importe/i, /efectivo|tarjeta|visa|mastercard|entregado/i];
-    outer: for (const p of pats) {
-      for (let i = 0; i < lines.length; i++) {
-        if (!p.test(lines[i]) || /subtotal|base\s*imp|iva\s*\d/i.test(lines[i]) && !/total\s*a\s*pagar/i.test(lines[i])) continue;
-        const cand = (lines[i].match(num) || []).concat(lines[i + 1] && !(lines[i].match(num)) ? (lines[i + 1].match(num) || []) : []);
-        if (cand.length) { total = U.parseAmount(cand[cand.length - 1]); if (total > 0) break outer; }
-      }
-    }
-    if (!total) {
-      const all = (text.match(num) || []).map(U.parseAmount).filter((v) => v > 0 && v < 5000);
-      if (all.length) total = Math.max(...all);
-    }
+  /* ocrLines (opcional): [{ text, h }] con la altura de cada línea en la foto.
+     El total suele ir en negrita y más grande: la altura de la línea pesa mucho. */
+  parseTicket(text, ocrLines) {
+    const fix = (t) => String(t || '')
+      .replace(/(\d)\s*[oO]\b/g, '$10').replace(/\b[oO](\d)/g, '0$1')      // O leída en vez de 0
+      .replace(/(\d)\s*([.,])\s*(\d{2})(?!\d)/g, '$1$2$3')                  // "12 , 50" -> "12,50"
+      .replace(/(\d)[lI|](\d)/g, '$11$2');                                     // l/I leída en vez de 1
+    const raw = ocrLines && ocrLines.length ? ocrLines : text.split('\n').map((t) => ({ text: t, h: 0 }));
+    const lines = raw.map((l) => ({ text: fix(l.text).trim(), h: l.h || 0 })).filter((l) => l.text);
+    const hs = lines.map((l) => l.h).filter((h) => h > 0).sort((a, b) => a - b);
+    const medH = hs.length ? hs[Math.floor(hs.length / 2)] : 0;
+    const num = /(\d{1,4})[.,](\d{2})(?!\d)/g;
+    const KEY_STRONG = /total\s*(a\s*)?pagar|importe\s*total|total\s*(eur|€|compra|venta)|^\W*total\b/i;
+    const KEY = /\btotal\b|a\s*pagar|importe/i;
+    const PAY = /tarjeta|visa|mastercard|maestro|contactless|efectivo|pagado|cobrado/i;
+    const BAD = /sub\s*total|base\s*imp|\biva\b|i\.v\.a|cuota|cambio|entregad|devoluc|descuento|dto\b|ahorr|puntos|saldo|\d\s*%|\bkg\b|€\/|precio\s*\/|unid|uds\b|x\s*\d/i;
+    const byVal = {};
+    lines.forEach((l, i) => {
+      const vals = [...l.text.matchAll(num)].map((m) => U.parseAmount(m[1] + ',' + m[2])).filter((v) => v > 0 && v < 10000);
+      if (!vals.length) return;
+      const prev = lines[i - 1]?.text || '';
+      const lettersHere = /[a-zA-Z]{3,}/.test(l.text);
+      let score = 0;
+      if (KEY_STRONG.test(l.text)) score += 7;
+      else if (KEY.test(l.text)) score += 5;
+      else if (!lettersHere && KEY.test(prev) && !BAD.test(prev)) score += 5;   // "TOTAL" en una línea y el número en la siguiente
+      if (PAY.test(l.text)) score += 2.5;
+      if (BAD.test(l.text) && !KEY_STRONG.test(l.text)) score -= 8;
+      if (medH && l.h) score += U.clamp((l.h / medH - 1) * 8, -2, 10);         // letra más grande → muy probable que sea el total
+      score += (i / lines.length) * 1.5;                                        // el total suele ir en la mitad de abajo
+      const v = vals[vals.length - 1];                                          // en una línea, el importe es el último número
+      const c = byVal[v] || (byVal[v] = { v, score: -99, n: 0 });
+      c.score = Math.max(c.score, score); c.n++;
+    });
+    const cands = Object.values(byVal).map((c) => ({ v: c.v, score: c.score + (c.n - 1) * 2 }));  // el total suele repetirse (TOTAL, TARJETA…)
+    // Si no hay ninguna pista, el importe más alto razonable
+    const maxV = Math.max(0, ...cands.map((c) => c.v));
+    cands.forEach((c) => { if (c.v === maxV) c.score += 1.5; });
+    cands.sort((a, b) => b.score - a.score);
+    const total = cands.length ? cands[0].v : 0;
     // Fecha
     let date = null;
     const dm = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
@@ -667,7 +690,7 @@ const Nova = {
     // Comercio: primera línea con letras de verdad
     let merchant = '';
     for (const l of lines.slice(0, 6)) {
-      const clean = l.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9 .,&'-]/g, '').trim();
+      const clean = l.text.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9 .,&'-]/g, '').trim();
       const letters = (clean.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]/g) || []).length;
       if (letters >= 3 && letters / clean.length > 0.6 && !/factura|ticket|simplificada|cif|nif|tel|www|c\/|calle|avda/i.test(clean)) { merchant = clean; break; }
     }
@@ -677,6 +700,6 @@ const Nova = {
     const hit = known.find((w) => new RegExp(`\\b${w}\\b`).test(nt) && ['comida', 'gasolina', 'cenas', 'fumar', 'compras', 'salud'].includes(SEED_MAP[w]));
     if (hit && !U.norm(merchant).includes(hit)) merchant = hit.charAt(0).toUpperCase() + hit.slice(1);
     merchant = merchant.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 40);
-    return { total: U.r2(total), date, merchant };
+    return { total: U.r2(total), date, merchant, cands: cands.slice(0, 4).map((c) => U.r2(c.v)) };
   }
 };

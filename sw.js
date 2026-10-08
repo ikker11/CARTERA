@@ -1,5 +1,5 @@
 // Cartera · service worker: guarda la app en el iPhone para que funcione sin conexión
-const VERSION = 'cartera-v2';
+const VERSION = 'cartera-v3';
 const CORE = [
   './',
   './index.html',

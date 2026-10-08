@@ -26,10 +26,11 @@
   --radius: 14px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  color-scheme: light dark;
+  color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Tema oscuro: lo activa la app (Ajustes → Apariencia) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
     --bg: #000000;
     --card: #1C1C1E;
     --card2: #2C2C2E;
@@ -50,7 +51,6 @@
     --blue-soft: rgba(10,132,255,.18);
     --bar: rgba(22,22,24,.84);
     --shadow: none;
-  }
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -217,7 +217,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin-bottom: 14px; }
 .seg button { flex: 1; padding: 7px 4px; font-size: 14px; font-weight: 500; border-radius: 7px; transition: background .2s; }
 .seg button.on { background: var(--card); box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.04); font-weight: 600; }
-@media (prefers-color-scheme: dark) { .seg button.on { background: #636366; } }
+:root[data-theme="dark"] .seg button.on { background: #636366; }
 
 .search { display: flex; align-items: center; gap: 6px; background: var(--fill); border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; }
 .search svg { width: 16px; height: 16px; fill: var(--label2); flex: none; }
@@ -402,7 +402,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 /* ---------- Alertas y toast ---------- */
 .alert-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.35); display: grid; place-items: center; animation: fadeIn .15s; }
 .alert { width: 270px; background: var(--bar); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); border-radius: 14px; text-align: center; overflow: hidden; }
-@media (prefers-color-scheme: dark) { .alert { background: rgba(37,37,37,.92); } }
+:root[data-theme="dark"] .alert { background: rgba(37,37,37,.92); }
 .alert-body { padding: 19px 16px 16px; }
 .alert-body b { display: block; font-size: 17px; font-weight: 600; margin-bottom: 4px; }
 .alert-body p { margin: 0; font-size: 13px; line-height: 1.35; }
@@ -433,7 +433,5 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .pin-pad button.ghost { background: none; font-size: 16px; }
 
 /* Hoja en modo oscuro: un tono más clara que el fondo, como en iOS */
-@media (prefers-color-scheme: dark) {
-  .sheet { --bg: #1C1C1E; --card: #2C2C2E; --fill: rgba(118,118,128,.3); }
-  .sheet-backdrop { background: rgba(0,0,0,.6); }
-}
+:root[data-theme="dark"] .sheet { --bg: #1C1C1E; --card: #2C2C2E; --fill: rgba(118,118,128,.3); }
+:root[data-theme="dark"] .sheet-backdrop { background: rgba(0,0,0,.6); }

@@ -5,7 +5,7 @@
 'use strict';
 
 const KEY = 'cartera.v1';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -16,7 +16,7 @@ function freshState() {
     cats: DEFAULT_CATS.map((c) => ({ ...c })),
     tx: [], fixed: [], inst: [], goals: [], chat: [],
     learn: { words: {}, merchants: {}, feedback: {}, dismissed: {}, preds: {}, bias: 1, corrections: 0, confirms: 0, notFixed: [] },
-    settings: { name: '', pin: '', lastBackup: '', onboarded: false, installHidden: false }
+    settings: { name: '', pin: '', lastBackup: '', onboarded: false, installHidden: false, theme: 'auto' }
   };
 }
 function loadState() {
@@ -42,6 +42,16 @@ function save() {
 }
 function saveNow() { clearTimeout(saveTimer); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 function commit() { save(); render(); }
+
+/* ---------------- Tema claro / oscuro ---------------- */
+const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme() {
+  const pref = S.settings.theme || 'auto';
+  const dark = pref === 'dark' || (pref === 'auto' && !!darkMQ?.matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  $('#theme-color')?.setAttribute('content', dark ? '#000000' : '#F2F2F7');
+}
+darkMQ?.addEventListener?.('change', () => { if ((S.settings.theme || 'auto') === 'auto') applyTheme(); });
 
 const UI = { tab: 'home', homeYm: U.ym(), movSeg: 'hist', movCat: 'all', search: '', saveSeg: 'goals', novaSeg: 'chat', typing: false };
 
@@ -432,6 +442,7 @@ const SHEETS = {
           <div style="text-align:right;margin-top:6px"><button style="color:var(--accent-ink);font-size:14px" data-act="pickTicket">o elegir una foto de la galería</button></div>` : ''}
         ${d.photoData ? `<img class="ticket-thumb" src="${d.photoData}" alt="Ticket">` : d.hasPhoto ? '<div id="photo-slot"></div>' : ''}
         ${d.ocrNote ? `<div class="nova-suggest"><div class="nova-orb"></div><div>${d.ocrNote}</div></div>` : ''}
+        ${(d.ocrCands || []).length > 1 ? `<div class="chips" style="margin:10px -16px 0">${d.ocrCands.map((v) => `<button class="chip ${U.parseAmount(d.amount) === v ? 'on' : ''}" data-act="pickAmount" data-v="${v}">${U.eur2(v)}</button>`).join('')}</div>` : ''}
         <div class="group-label">Detalles</div>
         <div class="form">
           <div class="field"><label>Concepto</label><input id="tx-desc" placeholder="${isInc ? 'Nómina, Bizum…' : 'Mercadona, gasolina…'}" value="${U.esc(d.desc || '')}" autocomplete="off"></div>
@@ -578,6 +589,9 @@ const SHEETS = {
         <div style="text-align:center;margin:8px 0 4px"><img src="icon-180.png" style="width:72px;height:72px;border-radius:17px" alt=""><div style="font-weight:700;font-size:20px;margin-top:6px">Cartera</div><div style="color:var(--label2);font-size:13px">Versión ${APP_VERSION} · tus datos se guardan solos en este iPhone</div></div>
         <div class="group-label">Perfil</div>
         <div class="form"><div class="field"><label>Tu nombre</label><input id="set-name" placeholder="Opcional" value="${U.esc(st.name)}"></div></div>
+        <div class="group-label">Apariencia</div>
+        <div class="seg" style="margin-bottom:0">${[['auto', 'Automático'], ['light', '☀️ Claro'], ['dark', '🌙 Oscuro']].map(([v, l]) => `<button class="${(st.theme || 'auto') === v ? 'on' : ''}" data-act="setTheme" data-id="${v}">${l}</button>`).join('')}</div>
+        <p class="footnote">«Automático» sigue el modo claro u oscuro de tu iPhone.</p>
         <div class="group-label">Organización</div>
         <div class="list">
           <button class="row" data-act="openCats"><div class="row-ico" style="background:var(--accent-soft)">🏷️</div><div class="row-main"><div class="row-title">Categorías y presupuestos</div></div>${CHEV}</button>
@@ -728,6 +742,7 @@ const A = {
     removeTx(d.id); Sheet.close(); commit(); toast('Eliminado');
   },
   undoTx(id) { if (!S.tx.some((t) => t.id === id)) return toast('Ya estaba eliminado'); removeTx(id); commit(); toast('Deshecho'); },
+  pickAmount(el) { const d = Sheet.cur.d; d.amount = String(el.dataset.v).replace('.', ','); Sheet.render(); },
   txToInst() { const d = Sheet.cur.d; A.newInst({ name: d.desc, total: d.amount, cat: d.cat || d.suggest?.cat || 'compras' }); },
 
   /* Tickets */
@@ -859,6 +874,7 @@ const A = {
 
   /* Ajustes */
   openSettings() { Sheet.open('settings'); },
+  setTheme(el) { S.settings.theme = el.dataset.id; applyTheme(); save(); Sheet.render(); },
   openCats() { Sheet.open('cats'); },
   goCats() { Sheet.open('cats'); },
   newCat() { Sheet.open('cat', { name: '', emoji: '🐶', color: '#5AC8FA', type: 'expense', budget: '' }); },
@@ -895,7 +911,7 @@ const A = {
   async wipe() {
     if (!(await confirmDel('¿Borrar todo?', 'Se eliminarán todos tus movimientos, metas y lo aprendido por Nova. Haz una copia antes si la quieres conservar.', 'Borrar todo'))) return;
     if (!(await confirmDel('¿Seguro del todo?', 'No se puede deshacer.', 'Sí, borrar'))) return;
-    S = freshState(); S.settings.onboarded = true; await Photos.clear(); saveNow(); Sheet.close(); UI.tab = 'home'; render(); toast('Datos borrados');
+    S = freshState(); S.settings.onboarded = true; applyTheme(); await Photos.clear(); saveNow(); Sheet.close(); UI.tab = 'home'; render(); toast('Datos borrados');
   },
   finishWelcome() {
     const d = Sheet.cur.d;
@@ -955,7 +971,8 @@ function readImage(file) {
   });
 }
 function toCanvas(img, max, filter) {
-  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  // reduce las fotos grandes y amplía las pequeñas (hasta 2×) para que el lector vea mejor los números
+  const k = Math.min(filter ? 2 : 1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   const x = c.getContext('2d');
@@ -985,15 +1002,22 @@ async function handleTicket(file) {
       }
     });
     if (scanCancelled) return;
-    const p = Nova.parseTicket(res.data.text || '');
+    // altura de cada línea: el total suele ir en negrita y más grande
+    const ocrLines = (res.data.lines || []).map((l) => {
+      const words = (l.words || []).filter((w) => /\d[.,]\s?\d{2}/.test(w.text));
+      const box = (b) => (b ? b.y1 - b.y0 : 0);
+      return { text: l.text, h: words.length ? Math.max(...words.map((w) => box(w.bbox))) : box(l.bbox) };
+    });
+    const p = Nova.parseTicket(res.data.text || '', ocrLines);
     const d = scanDraft;
     d.type = 'expense';
     d.photoData = thumb;
     if (p.total) d.amount = String(p.total).replace('.', ',');
+    d.ocrCands = (p.cands || []).filter((v) => v > 0);
     if (p.merchant && !d.desc) d.desc = p.merchant;
     if (p.date) d.date = p.date;
     const found = [p.total && 'importe', p.merchant && 'comercio', p.date && 'fecha'].filter(Boolean);
-    d.ocrNote = found.length ? `He leído ${found.join(', ')}. <b>Revísalo</b> antes de guardar y corrige lo que haga falta.` : 'No he podido leer bien el ticket. Prueba con más luz y el ticket bien estirado, o escribe el importe a mano.';
+    d.ocrNote = found.length ? `He leído ${found.join(', ')}. <b>Revisa el total</b>: si no es el bueno, toca el correcto aquí debajo.` : 'No he podido leer bien el ticket. Prueba con más luz y el ticket bien estirado, o escribe el importe a mano.';
     Sheet.open('tx', d);
   } catch (e) {
     console.error(e);
@@ -1028,7 +1052,7 @@ async function importBackup(file) {
     localStorage.setItem(KEY, JSON.stringify(data.state));
     await Photos.clear();
     for (const [k, v] of Object.entries(data.photos || {})) await Photos.put(k, v);
-    S = loadState(); S.settings.onboarded = true; processRecurring(); saveNow(); Sheet.close(); render(); toast('✅ Copia restaurada');
+    S = loadState(); S.settings.onboarded = true; applyTheme(); processRecurring(); saveNow(); Sheet.close(); render(); toast('✅ Copia restaurada');
   } catch (e) { iosAlert('Archivo no válido', 'Elige un archivo de copia creado con Cartera (.json).'); }
 }
 
@@ -1110,6 +1134,7 @@ window.addEventListener('pagehide', saveNow);
    ARRANQUE
    ================================================================ */
 (function init() {
+  applyTheme();
   processRecurring();
   render();
   showLock();
